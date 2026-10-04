@@ -183,8 +183,8 @@ first the hand is a draw.
 
 Race to **15 prestige points** by collecting gems, buying development cards and
 attracting nobles. The board is the base game's: 90 development cards in three
-levels (the dots on the left of each row), and 10 nobles, of which *players + 1*
-are in play. The bank starts with **7 gems of each colour** (at any player count)
+levels (the dots on the left of each row), and 10 nobles, of which **5** are in
+play at any player count. The bank starts with **7 gems of each colour** (at any player count)
 and 5 gold.
 
 **On your turn, do one of four things:**

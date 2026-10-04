@@ -22,6 +22,9 @@ export const WIN_POINTS     = 15;
 export const NOBLE_POINTS   = 3;
 export const MARKET_SIZE    = 4;
 const GOLD_COUNT            = 5;
+// Five nobles at every table size. (The printed rules deal one more than the
+// number of players.)
+const NOBLES_IN_PLAY        = 5;
 
 function clone(state) { return structuredClone(state); }
 
@@ -114,7 +117,7 @@ export function createGame(playerIds) {
     bank:    { w: per, b: per, g: per, r: per, k: per, gold: GOLD_COUNT },
     market,
     decks,
-    nobles:  shuffle(NOBLES).slice(0, order.length + 1),
+    nobles:  shuffle(NOBLES).slice(0, NOBLES_IN_PLAY),
     currentPlayerIndex: 0,
     turnStage:   'action',          // action → returnGems → chooseNoble
     finalRound:  false,             // someone has reached 15; finish the round
