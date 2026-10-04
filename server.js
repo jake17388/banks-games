@@ -627,7 +627,7 @@ function executeMahjongBotMove(room, botId) {
 const SP_BOT_DELAY_MS = 1300;
 
 // The bot whose move the table is waiting on, or null. Every stage of a turn
-// — the action, handing gems back, choosing a noble — belongs to the player
+// — the action, or handing gems back — belongs to the player
 // whose turn it is.
 function nextSplendorBot(room) {
   const state = room.gameState;
@@ -654,7 +654,6 @@ function applySplendorBotMove(state, botId, move) {
     case 'reserve': return sp.reserveCard(state, botId, move);
     case 'buy':     return sp.buyCard(state, botId, move);
     case 'return':  return sp.returnGems(state, botId, move.gems);
-    case 'noble':   return sp.chooseNoble(state, botId, move.nobleId);
     case 'pass':    return sp.passTurn(state, botId);
     default:        return null;
   }
@@ -1062,10 +1061,6 @@ io.on('connection', socket => {
 
   socket.on('sp:return', ({ gems } = {}) => {
     applySplendor(socket, (state, pid) => sp.returnGems(state, pid, gems));
-  });
-
-  socket.on('sp:noble', ({ nobleId } = {}) => {
-    applySplendor(socket, (state, pid) => sp.chooseNoble(state, pid, nobleId));
   });
 
   socket.on('sp:pass', () => {

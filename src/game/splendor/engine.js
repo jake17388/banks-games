@@ -6,9 +6,10 @@
 // that is safe to show the player.
 //
 // A turn is one action — take gems, reserve a card or buy a card — followed by
-// whatever that action makes necessary: handing gems back down to ten, and
-// choosing a noble when more than one comes to visit. `turnStage` tracks where
-// in that sequence the current player is.
+// whatever that action makes necessary: nobles visit the moment a player's
+// cards meet their requirements (every noble they now qualify for, at once),
+// and gems are handed back down to ten. `turnStage` tracks where in that
+// sequence the current player is.
 // ============================================================
 
 import { COLORS, COLOR_NAMES, DECKS, NOBLES } from './cards.js';
@@ -119,7 +120,7 @@ export function createGame(playerIds) {
     decks,
     nobles:  shuffle(NOBLES).slice(0, NOBLES_IN_PLAY),
     currentPlayerIndex: 0,
-    turnStage:   'action',          // action → returnGems → chooseNoble
+    turnStage:   'action',          // action → returnGems
     finalRound:  false,             // someone has reached 15; finish the round
     phase:       'playing',
     winner:      null,
@@ -141,7 +142,6 @@ function requireTurn(state, playerId, stage = 'action') {
   if (state.turnStage !== stage) {
     throw new Error(
       state.turnStage === 'returnGems'  ? 'You have too many gems — return some first.'
-      : state.turnStage === 'chooseNoble' ? 'Choose a noble first.'
       : 'That move is not available right now.');
   }
 }
@@ -278,17 +278,6 @@ export function returnGems(prev, playerId, gems) {
   }
 
   log(state, `${nameOf(state, playerId)} returned ${count} gem${count === 1 ? '' : 's'}.`);
-  return afterGems(state, playerId);
-}
-
-export function chooseNoble(prev, playerId, nobleId) {
-  const state = clone(prev);
-  requireTurn(state, playerId, 'chooseNoble');
-
-  const options = eligibleNobles(state, playerId);
-  if (!options.some(n => n.id === nobleId)) throw new Error('That noble cannot visit you.');
-
-  takeNoble(state, playerId, nobleId);
   return endTurn(state, playerId);
 }
 
@@ -305,23 +294,17 @@ export function passTurn(prev, playerId) {
 // ── Turn flow ────────────────────────────────────────────────
 
 function afterAction(state, playerId) {
+  // A noble belongs to the first player whose cards meet it, and arrives the
+  // moment they buy the card that does — all of them, if that card completes
+  // more than one.
+  for (const noble of eligibleNobles(state, playerId)) takeNoble(state, playerId, noble.id);
+
   const player = state.players[playerId];
   if (totalGems(player.gems) > GEM_LIMIT) {
     state.turnStage = 'returnGems';
     return state;
   }
-  return afterGems(state, playerId);
-}
-
-function afterGems(state, playerId) {
-  const visiting = eligibleNobles(state, playerId);
-  if (visiting.length === 0) return endTurn(state, playerId);
-  if (visiting.length === 1) {
-    takeNoble(state, playerId, visiting[0].id);
-    return endTurn(state, playerId);
-  }
-  state.turnStage = 'chooseNoble';
-  return state;
+  return endTurn(state, playerId);
 }
 
 export function eligibleNobles(state, playerId) {

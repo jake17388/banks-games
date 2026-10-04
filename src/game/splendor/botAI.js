@@ -9,7 +9,7 @@
 
 import { COLORS } from './cards.js';
 import {
-  bonusesOf, paymentFor, totalGems, legalMoves, eligibleNobles,
+  bonusesOf, paymentFor, totalGems, legalMoves,
   GEM_LIMIT, RESERVE_LIMIT,
 } from './engine.js';
 
@@ -74,9 +74,6 @@ export function getBotMove(state, botId) {
   const bonus  = bonusesOf(state, player);
 
   if (state.turnStage === 'returnGems') return returnMove(state, player, bonus);
-  if (state.turnStage === 'chooseNoble') {
-    return { type: 'noble', nobleId: eligibleNobles(state, botId)[0].id };
-  }
 
   // Buy the most valuable card we can afford — unless it's a pointless
   // purchase when a better one is a gem or two away.
@@ -161,9 +158,6 @@ export function getBotFallbackMove(state, botId) {
       gems[give]++; held[give]--;
     }
     return { type: 'return', gems };
-  }
-  if (state.turnStage === 'chooseNoble') {
-    return { type: 'noble', nobleId: eligibleNobles(state, botId)[0].id };
   }
 
   const moves = legalMoves(state, botId);
