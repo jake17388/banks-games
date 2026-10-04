@@ -95,6 +95,14 @@ export function getBotMove(state, botId) {
 
   const target = pickTarget(state, player, bonus);
 
+  // A hand that is already full has nothing to gain from taking gems it would
+  // only have to hand straight back — that is how a bot spins in place.
+  // Locking the target down instead earns a gold gem and moves things along.
+  const room = GEM_LIMIT - totalGems(player.gems);
+  if (room < 2 && target && !target.ref.reservedId && player.reserved.length < RESERVE_LIMIT) {
+    return { type: 'reserve', ...target.ref };
+  }
+
   // Take the gems the target needs, topping up with whatever else is useful.
   const open = COLORS.filter(c => state.bank[c] > 0);
   if (open.length > 0) {
@@ -104,7 +112,6 @@ export function getBotMove(state, botId) {
 
     // Two of one colour when we're short two of it and the pile allows it.
     const double = COLORS.find(c => target?.short[c] >= 2 && state.bank[c] >= 4);
-    const room   = GEM_LIMIT - totalGems(player.gems);
     if (double && need.length <= 1 && room >= 2) return { type: 'take', colors: [double, double] };
 
     const rest = open
