@@ -42,8 +42,10 @@ function log(state, message) {
 const nameOf = (state, id) => state.playerNames?.[id] ?? 'Player';
 const emptyGems = () => ({ w: 0, b: 0, g: 0, r: 0, k: 0, gold: 0 });
 
-export function gemsPerColor(playerCount) {
-  return playerCount === 2 ? 4 : playerCount === 3 ? 5 : 7;
+// Seven of each colour at every table size. (The printed rules scale this down
+// to 4 and 5 for two and three players; this table plays with the full set.)
+export function gemsPerColor() {
+  return 7;
 }
 
 export function totalGems(gems) {
@@ -91,7 +93,7 @@ export function createGame(playerIds) {
   if (playerIds.length > MAX_PLAYERS) throw new Error('Splendor supports up to 4 players.');
 
   const order = shuffle(playerIds);
-  const per   = gemsPerColor(order.length);
+  const per   = gemsPerColor();
 
   const decks  = { 1: shuffle(DECKS[1]), 2: shuffle(DECKS[2]), 3: shuffle(DECKS[3]) };
   const market = { 1: [], 2: [], 3: [] };
