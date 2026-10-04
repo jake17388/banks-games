@@ -190,6 +190,14 @@ export function useGameState(socket) {
     mjDeclare:       ()                          => socket.emit('mj:declare'),
     mjReorder:       (tileIds)                   => socket.emit('mj:reorder', { tileIds }),
     mjSort:          ()                          => socket.emit('mj:sort'),
+
+    // Splendor
+    spTake:          (colors)                    => socket.emit('sp:take',    { colors }),
+    spReserve:       (target)                    => socket.emit('sp:reserve', target),
+    spBuy:           (target)                    => socket.emit('sp:buy',     target),
+    spReturn:        (gems)                      => socket.emit('sp:return',  { gems }),
+    spNoble:         (nobleId)                   => socket.emit('sp:noble',   { nobleId }),
+    spPass:          ()                          => socket.emit('sp:pass'),
   };
 
   // What the board draws: the server's state with your unconfirmed moves

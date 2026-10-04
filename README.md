@@ -8,6 +8,7 @@ Enter your name, pick a game, then create a room or join one with a code:
 |---|---|---|
 | **Property Deal** — inspired by Monopoly Deal | 2–5 | yes |
 | **Mah Jong** — American mahjong | 2–4 | yes |
+| **Splendor** — gem-trading engine builder | 2–4 | yes |
 
 ## Running locally
 
@@ -178,6 +179,38 @@ card, and in the marked strip under your rack — and a **Mah Jong** button appe
 Declaring reveals every hand and offers the usual rematch. If the wall runs out
 first the hand is a draw.
 
+## How to play — Splendor
+
+Race to **15 prestige points** by collecting gems, buying development cards and
+attracting nobles. The board is the base game's: 90 development cards in three
+levels (the dots on the left of each row), and 10 nobles, of which *players + 1*
+are in play.
+
+**On your turn, do one of four things:**
+
+- **Take gems** — tap gems in the bank at the bottom, then *Take*. Either **three
+  different colours**, or **two of one colour** (tap it twice) when that pile still
+  holds four or more. If fewer than three colours are left you may take fewer.
+- **Reserve a card** — tap a face-up card and choose *Reserve*, or tap a deck to
+  reserve its top card blind (only you can see it). You get a **gold** gem if any
+  is left. You can hold three reserved cards; they appear under the market.
+- **Buy a card** — tap an affordable card (they glow green) and choose *Buy*, from
+  the market or from your reserve. Each card you own is a permanent **discount** of
+  one gem in its colour. Gold gems stand in for any colour, and are spent
+  automatically for whatever you're still short of.
+- **Pass** — only offered when you genuinely have no other legal move.
+
+**Ten gems at most.** If a turn leaves you with more than ten, you tap gems in your
+own row to pick the extras to return before play moves on.
+
+**Nobles.** At the end of your turn, a noble whose card requirements you meet visits
+you automatically and is worth 3 points. If more than one qualifies, tap the one you
+want.
+
+**Winning.** When a player reaches 15 points the round is finished, so everyone gets
+the same number of turns. The highest score wins; a tie goes to the player with
+**fewer purchased cards**. Bots (Midas, Croesus and Medici) are available.
+
 ## Tech stack
 
 - **Frontend**: React 19, Vite, Tailwind CSS, Socket.IO client
@@ -189,3 +222,6 @@ first the hand is a draw.
     hand's suit/number/wind placeholders into concrete tile requirements and
     matches a rack against them), `engine.js` (deal, Charleston, turns, claims,
     blanks, winning), `botAI.js` (the bots)
+  - Splendor — `src/game/splendor/`: `cards.js` (the 90 cards and 10 nobles),
+    `engine.js` (setup, the four actions, the ten-gem limit, nobles, end of game),
+    `botAI.js` (the bots)
