@@ -196,7 +196,6 @@ export function useGameState(socket) {
     spReserve:       (target)                    => socket.emit('sp:reserve', target),
     spBuy:           (target)                    => socket.emit('sp:buy',     target),
     spReturn:        (gems)                      => socket.emit('sp:return',  { gems }),
-    spNoble:         (nobleId)                   => socket.emit('sp:noble',   { nobleId }),
     spPass:          ()                          => socket.emit('sp:pass'),
   };
 

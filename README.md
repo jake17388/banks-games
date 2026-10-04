@@ -204,9 +204,9 @@ and 5 gold.
 **Ten gems at most.** If a turn leaves you with more than ten, you tap gems in your
 own row to pick the extras to return before play moves on.
 
-**Nobles.** At the end of your turn, a noble whose card requirements you meet visits
-you automatically and is worth 3 points. If more than one qualifies, tap the one you
-want.
+**Nobles.** The first player whose cards meet a noble's requirements gets it — it
+arrives automatically the moment you buy the card that completes it, and is worth 3
+points. If that one card completes several nobles, you take all of them.
 
 **Winning.** When a player reaches 15 points the round is finished, so everyone gets
 the same number of turns. The highest score wins; a tie goes to the player with

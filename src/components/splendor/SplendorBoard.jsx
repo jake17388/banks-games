@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { COLORS, COLOR_NAMES } from '../../game/splendor/cards.js';
 import {
-  paymentFor, bonusesOf, totalGems, scoreOf, eligibleNobles, legalMoves,
+  paymentFor, bonusesOf, totalGems, scoreOf, legalMoves,
   takeGems, GEM_LIMIT, RESERVE_LIMIT, WIN_POINTS,
 } from '../../game/splendor/engine.js';
 
@@ -98,16 +98,13 @@ function CardView({ card, onClick, canBuy, testId, width }) {
   );
 }
 
-function NobleView({ noble, onClick, highlight }) {
+function NobleView({ noble }) {
   return (
-    <button
-      onClick={onClick}
+    <div
       data-testid={`noble-${noble.id}`}
       style={{
-        background: '#fffbeb', border: `2px solid ${highlight ? '#16a34a' : '#fcd34d'}`,
-        boxShadow: highlight ? '0 0 0 3px rgba(22,163,74,0.35)' : 'none',
+        background: '#fffbeb', border: '2px solid #fcd34d',
         borderRadius: 10, padding: '4px 6px', display: 'flex', alignItems: 'center', gap: 5,
-        cursor: onClick ? 'pointer' : 'default',
       }}
     >
       <span style={{ fontSize: 15, fontWeight: 800, color: '#92400e' }}>{noble.points}</span>
@@ -116,7 +113,7 @@ function NobleView({ noble, onClick, highlight }) {
           <Gem key={c} color={c} size={16} count={noble.req[c]} square />
         ))}
       </div>
-    </button>
+    </div>
   );
 }
 
@@ -166,10 +163,6 @@ export default function SplendorBoard({ gameState, playerId, playerNames, action
   const mustReturn  = me ? Math.max(0, totalGems(me.gems) - GEM_LIMIT) : 0;
 
   const myBonus   = useMemo(() => (me ? bonusesOf(gameState, me) : {}), [gameState, me]);
-  const nobleOptions = useMemo(
-    () => (isMyTurn && stage === 'chooseNoble' ? eligibleNobles(gameState, playerId) : []),
-    [gameState, playerId, isMyTurn, stage],
-  );
   const stuck = useMemo(
     () => isMyTurn && stage === 'action' && legalMoves(gameState, playerId).length === 0,
     [gameState, playerId, isMyTurn, stage],
@@ -211,7 +204,6 @@ export default function SplendorBoard({ gameState, playerId, playerNames, action
   const lastToAct = gameState.finalRound;
   let status, tone = 'idle';
   if (isMyTurn && stage === 'returnGems')  { status = `You hold more than ${GEM_LIMIT} gems — return ${mustReturn}`; tone = 'active'; }
-  else if (isMyTurn && stage === 'chooseNoble') { status = 'Choose which noble visits you'; tone = 'active'; }
   else if (stuck)                          { status = 'You have no legal move — pass your turn'; tone = 'active'; }
   else if (isMyTurn)                       { status = 'Your turn — take gems, reserve a card, or buy one'; tone = 'active'; }
   else                                     status = `Waiting for ${name(currentId)}…`;
@@ -312,13 +304,7 @@ export default function SplendorBoard({ gameState, playerId, playerNames, action
 
           {/* Nobles */}
           <div style={{ display: 'flex', gap: 8, justifyContent: 'center', margin: '10px 0', flexWrap: 'wrap' }}>
-            {gameState.nobles.map(n => (
-              <NobleView
-                key={n.id} noble={n}
-                highlight={nobleOptions.some(o => o.id === n.id)}
-                onClick={nobleOptions.some(o => o.id === n.id) ? () => actions.spNoble(n.id) : undefined}
-              />
-            ))}
+            {gameState.nobles.map(n => <NobleView key={n.id} noble={n} />)}
           </div>
 
           {/* Market */}
