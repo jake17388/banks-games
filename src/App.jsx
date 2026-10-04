@@ -4,6 +4,7 @@ import { useState }                        from 'react';
 import GameBoard                           from './components/GameBoard.jsx';
 import MahjongBoard                       from './components/mahjong/MahjongBoard.jsx';
 import MahjongReveal                      from './components/mahjong/MahjongReveal.jsx';
+import SplendorBoard                      from './components/splendor/SplendorBoard.jsx';
 import DebugSetup                          from './components/DebugSetup.jsx';
 import Settings                            from './components/Settings.jsx';
 import { cleanUpdateUrl }                  from './hooks/useAppVersion.js';
@@ -27,6 +28,12 @@ const GAMES = {
     tagline: 'American mahjong — build a hand from the card',
     players: '2–4 players', accent: '#b45309', tint: '#fffbeb', border: '#fcd34d',
     bots: true, botNames: ['Sum', 'Ting', 'Wong'],
+  },
+  splendor: {
+    key: 'splendor', name: 'Splendor', icon: '💎',
+    tagline: 'Collect gems, buy mines, race to 15 prestige points',
+    players: '2–4 players', accent: '#7c3aed', tint: '#f5f3ff', border: '#c4b5fd',
+    bots: true, botNames: ['Midas', 'Croesus', 'Medici'],
   },
 };
 
@@ -138,15 +145,37 @@ export default function App() {
               {gameOver.reason === 'wall'      ? 'Wall game — nobody won'
                 : !gameOver.winnerName         ? 'Nobody won'
                 : gameOver.reason === 'mahjong' ? `${gameOver.winnerName} called Mah Jong!`
+                : (gameOver.winnerIds?.length ?? 0) > 1 ? `${gameOver.winnerName} and others tie!`
                 : `${gameOver.winnerName} wins!`}
             </h1>
             <p style={{ fontSize: 13, color: '#6b7280' }}>
               {gameOver.reason === 'resignation' ? 'Game ended by resignation'
                 : gameOver.reason === 'wall'      ? 'The wall ran out before anyone completed a hand'
                 : gameOver.reason === 'deckEmpty' ? 'The deck ran out — most complete sets takes it'
+                : gameOver.reason === 'points'    ? 'Most prestige points after the final round — fewer cards breaks a tie'
                 : 'Great game everyone!'}
             </p>
           </div>
+
+          {gameOver.standings && (
+            <div data-testid="standings" style={{ borderTop: '1px solid #e5e7eb', paddingTop: 16, marginBottom: 20 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: '#374151', textAlign: 'center', marginBottom: 8, letterSpacing: '0.04em' }}>
+                FINAL SCORES
+              </div>
+              {gameOver.standings.map(s => (
+                <div key={s.id} style={{
+                  display: 'flex', alignItems: 'center', gap: 10, padding: '7px 0',
+                  borderBottom: '1px solid #f3f4f6', fontSize: 14,
+                  fontWeight: gameOver.winnerIds?.includes(s.id) ? 800 : 500, color: '#111827',
+                }}>
+                  <span style={{ width: 22, textAlign: 'center' }}>{gameOver.winnerIds?.includes(s.id) ? '🏆' : ''}</span>
+                  <span style={{ flex: 1 }}>{s.name}{s.id === playerId ? ' (you)' : ''}</span>
+                  <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 500 }}>{s.cards} cards</span>
+                  <span style={{ minWidth: 44, textAlign: 'right', color: '#b45309' }}>{s.points} pts</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           <MahjongReveal
             gameState={gameState}
@@ -278,6 +307,18 @@ export default function App() {
     />
   );
 
+  if (gameState?.gameType === 'splendor') return (
+    <SplendorBoard
+      gameState={gameState}
+      playerId={playerId}
+      playerNames={Object.fromEntries(
+        roomInfo?.players?.map(p => [p.id, p.name]) ?? []
+      )}
+      actions={actions}
+      resignedPlayer={resignedPlayer}
+    />
+  );
+
   if (gameState) return (
     <GameBoard
       gameState={gameState}
@@ -295,12 +336,12 @@ export default function App() {
   // frontend can land first. A server without game-type support just ignores
   // the field and hands back a Property Deal room — which would quietly drop a
   // Mah Jong player into the wrong game. Say what actually happened instead.
-  if (roomInfo && !roomInfo.gameType && gameChoice === 'mahjong') return shellWrapper(
+  if (roomInfo && !roomInfo.gameType && gameChoice && gameChoice !== 'property') return shellWrapper(
     <>
       <div style={{ textAlign: 'center', marginBottom: 20 }}>
         <div style={{ fontSize: 46, marginBottom: 10 }}>🛠️</div>
         <h1 style={{ fontSize: 20, fontWeight: 800, color: '#111827', marginBottom: 8 }}>
-          Mah Jong isn't live yet
+          {GAMES[gameChoice].name} isn't live yet
         </h1>
         <p style={{ fontSize: 13.5, color: '#6b7280', lineHeight: 1.55 }}>
           This app has the new version, but the game server it talks to hasn't been
@@ -324,7 +365,7 @@ export default function App() {
   // ── Lobby ────────────────────────────────────────────────
   if (roomInfo) {
     const game       = GAMES[roomInfo.gameType] ?? GAMES.property;
-    const maxPlayers = roomInfo.maxPlayers ?? (roomInfo.gameType === 'mahjong' ? 4 : 5);
+    const maxPlayers = roomInfo.maxPlayers ?? (roomInfo.gameType === 'property' ? 5 : 4);
     const enough     = roomInfo.players.length >= 2;
     const tooMany    = roomInfo.players.length > maxPlayers;
     return (

@@ -1,5 +1,5 @@
 // ============================================================
-// Socket.IO Game Server — Property Deal & Mah Jong
+// Socket.IO Game Server — Property Deal, Mah Jong & Splendor
 // Run with: node server.js
 // ============================================================
 
@@ -16,12 +16,18 @@ import {
 } from './src/game/engine.js';
 import { FULL_DECK } from './src/game/cards.js';
 import * as mj from './src/game/mahjong/engine.js';
+import * as sp from './src/game/splendor/engine.js';
 import { BOT_NAMES, getBotMove, getBotResponse, getBotDiscards, getBotWildcardOverflowMove } from './src/game/botAI.js';
 import {
   BOT_NAMES as MJ_BOT_NAMES,
   getBotMove as getMahjongBotMove,
   getBotFallbackMove as getMahjongBotFallbackMove,
 } from './src/game/mahjong/botAI.js';
+import {
+  BOT_NAMES as SP_BOT_NAMES,
+  getBotMove as getSplendorBotMove,
+  getBotFallbackMove as getSplendorBotFallbackMove,
+} from './src/game/splendor/botAI.js';
 
 // ============================================================
 // SERVER SETUP
@@ -105,6 +111,7 @@ function generateRoomCode() {
 const GAME_TYPES = {
   property: { label: 'Property Deal', min: 2, max: 5, bots: true, botNames: BOT_NAMES    },
   mahjong:  { label: 'Mah Jong',      min: 2, max: 4, bots: true, botNames: MJ_BOT_NAMES },
+  splendor: { label: 'Splendor',      min: 2, max: 4, bots: true, botNames: SP_BOT_NAMES },
 };
 
 function gameTypeOf(room) {
@@ -113,6 +120,78 @@ function gameTypeOf(room) {
 
 function isMahjong(room) {
   return gameTypeOf(room) === 'mahjong';
+}
+
+function isSplendor(room) {
+  return gameTypeOf(room) === 'splendor';
+}
+
+function createGameFor(room, playerIds) {
+  return isMahjong(room)  ? mj.createGame(playerIds)
+       : isSplendor(room) ? sp.createGame(playerIds)
+       : createGame(playerIds);
+}
+
+// Splendor is played in the open except for two things: the decks, which are
+// only ever a count, and cards reserved blind from a deck, which only their
+// owner may read.
+function sanitizeSplendor(state, viewerId) {
+  return {
+    ...state,
+    players: Object.fromEntries(
+      Object.entries(state.players).map(([id, p]) => [id, {
+        ...p,
+        // The placeholder's id must not be the card's own, or it could be
+        // looked up in the public card list.
+        reserved: id === viewerId
+          ? p.reserved
+          : p.reserved.map((c, i) => c.blind
+              ? { id: `hidden-${id}-${i}`, level: c.level, blind: true, hidden: true }
+              : c),
+      }])
+    ),
+    decks: Object.fromEntries(Object.entries(state.decks).map(([level, d]) => [level, d.length])),
+  };
+}
+
+// Runs a Splendor engine call for the socket's player and pushes the result.
+function applySplendor(socket, fn) {
+  const room = getRoomBySocket(socket.id);
+  if (!room?.gameState || !isSplendor(room)) return emitError(socket, 'No Splendor game in progress.');
+
+  const player = getPlayerBySocket(room, socket.id);
+  if (!player) return emitError(socket, 'Player not found.');
+
+  try {
+    applyMove(room, state => fn(state, player.id));
+  } catch (err) {
+    return emitError(socket, err.message);
+  }
+
+  broadcastGameState(room);
+  emitSplendorGameOver(room);
+  checkAndScheduleBotTurn(room);
+}
+
+function emitSplendorGameOver(room) {
+  const state = room.gameState;
+  if (state?.phase !== 'gameover' || room.gameOverSent) return;
+  room.gameOverSent = true;
+  const winner = room.players.find(p => p.id === state.winner);
+  io.to(room.roomCode).emit('gameOver', {
+    winnerId:   state.winner,
+    winnerName: winner?.name ?? state.playerNames?.[state.winner] ?? null,
+    winnerIds:  state.winners ?? [],
+    reason:     state.endReason,
+    standings:  state.playerOrder
+      .map(id => ({
+        id,
+        name:   state.playerNames?.[id] ?? 'Player',
+        points: sp.scoreOf(state.players[id]),
+        cards:  state.players[id].cards.length,
+      }))
+      .sort((a, b) => b.points - a.points || a.cards - b.cards),
+  });
 }
 
 // Mah Jong hands, marked win conditions and the wall are all private; strip
@@ -216,6 +295,10 @@ function broadcastGameState(room) {
 
     if (isMahjong(room)) {
       socket.emit('gameState', sanitizeMahjong(state, player.id));
+      return;
+    }
+    if (isSplendor(room)) {
+      socket.emit('gameState', sanitizeSplendor(state, player.id));
       return;
     }
 
@@ -379,7 +462,8 @@ function botNameOf(room, botId) {
 
 // Schedule the next bot action after every game-state broadcast.
 function checkAndScheduleBotTurn(room) {
-  if (isMahjong(room)) return scheduleMahjongBot(room);
+  if (isMahjong(room))  return scheduleMahjongBot(room);
+  if (isSplendor(room)) return scheduleSplendorBot(room);
 
   if (room.botTimeout) { clearTimeout(room.botTimeout); room.botTimeout = null; }
   if (!room.gameState || room.gameState.phase === 'gameover') return;
@@ -538,6 +622,73 @@ function executeMahjongBotMove(room, botId) {
   checkAndScheduleBotTurn(room);
 }
 
+// ── Splendor bots ────────────────────────────────────────────
+
+const SP_BOT_DELAY_MS = 1300;
+
+// The bot whose move the table is waiting on, or null. Every stage of a turn
+// — the action, handing gems back, choosing a noble — belongs to the player
+// whose turn it is.
+function nextSplendorBot(room) {
+  const state = room.gameState;
+  if (!state || state.phase !== 'playing') return null;
+  const currentId = state.playerOrder[state.currentPlayerIndex];
+  return room.players.some(p => p.isBot && p.id === currentId) ? currentId : null;
+}
+
+function scheduleSplendorBot(room) {
+  const waitingOn = hasConnectedHuman(room) ? nextSplendorBot(room) : null;
+
+  if (waitingOn && room.botTimeout && room.botTimeoutFor === waitingOn) return;
+
+  if (room.botTimeout) { clearTimeout(room.botTimeout); room.botTimeout = null; }
+  room.botTimeoutFor = waitingOn;
+  if (!waitingOn) return;
+
+  room.botTimeout = setTimeout(() => executeSplendorBotMove(room, waitingOn), SP_BOT_DELAY_MS);
+}
+
+function applySplendorBotMove(state, botId, move) {
+  switch (move?.type) {
+    case 'take':    return sp.takeGems(state, botId, move.colors);
+    case 'reserve': return sp.reserveCard(state, botId, move);
+    case 'buy':     return sp.buyCard(state, botId, move);
+    case 'return':  return sp.returnGems(state, botId, move.gems);
+    case 'noble':   return sp.chooseNoble(state, botId, move.nobleId);
+    case 'pass':    return sp.passTurn(state, botId);
+    default:        return null;
+  }
+}
+
+function executeSplendorBotMove(room, botId) {
+  room.botTimeout    = null;
+  room.botTimeoutFor = null;
+
+  const state = room.gameState;
+  if (!state || state.phase === 'gameover') return;
+  if (nextSplendorBot(room) !== botId) return;
+
+  let moved = false;
+  try {
+    moved = !!applyMove(room, s => applySplendorBotMove(s, botId, getSplendorBotMove(s, botId)));
+  } catch (err) {
+    console.error(`Splendor bot ${botId} move error:`, err.message);
+  }
+
+  if (!moved) {
+    try {
+      moved = !!applyMove(room, s => applySplendorBotMove(s, botId, getSplendorBotFallbackMove(s, botId)));
+    } catch (err) {
+      console.error(`Splendor bot ${botId} fallback error:`, err.message);
+    }
+  }
+  if (!moved) return;
+
+  broadcastGameState(room);
+  emitSplendorGameOver(room);
+  checkAndScheduleBotTurn(room);
+}
+
 // ============================================================
 // SOCKET.IO EVENTS
 // ============================================================
@@ -624,6 +775,25 @@ io.on('connection', socket => {
     if (room.players.length > cfg.max) return emitError(socket, `${cfg.label} supports up to ${cfg.max} players.`);
 
     const playerIds = room.players.map(p => p.id);
+
+    if (isSplendor(room)) {
+      try {
+        room.gameState = sp.createGame(playerIds);
+      } catch (err) {
+        return emitError(socket, err.message);
+      }
+      room.started      = true;
+      room.gameOverSent = false;
+      playerIds.forEach(id => {
+        const p = room.players.find(pl => pl.id === id);
+        if (p) room.gameState.playerNames[id] = p.name;
+      });
+      broadcastGameState(room);
+      io.to(room.roomCode).emit('gameStarted');
+      checkAndScheduleBotTurn(room);
+      console.log(`Splendor started in room ${room.roomCode}`);
+      return;
+    }
 
     if (isMahjong(room)) {
       try {
@@ -781,6 +951,22 @@ io.on('connection', socket => {
     const player = getPlayerBySocket(room, socket.id);
     if (!player) return emitError(socket, 'Player not found.');
 
+    if (isSplendor(room)) {
+      try {
+        room.gameState = sp.resignGame(room.gameState, player.id);
+      } catch (err) {
+        return emitError(socket, err.message);
+      }
+      broadcastGameState(room);
+      if (room.gameState.phase === 'gameover') {
+        emitSplendorGameOver(room);
+      } else {
+        io.to(room.roomCode).emit('playerResigned', { playerId: player.id, playerName: player.name });
+        checkAndScheduleBotTurn(room);
+      }
+      return;
+    }
+
     if (isMahjong(room)) {
       try {
         room.gameState = mj.resignGame(room.gameState, player.id);
@@ -860,6 +1046,32 @@ io.on('connection', socket => {
     applyMahjong(socket, (state, pid) => mj.sortHand(state, pid));
   });
 
+  // ── Splendor ─────────────────────────────────────────────
+
+  socket.on('sp:take', ({ colors } = {}) => {
+    applySplendor(socket, (state, pid) => sp.takeGems(state, pid, colors));
+  });
+
+  socket.on('sp:reserve', ({ level, index, deck } = {}) => {
+    applySplendor(socket, (state, pid) => sp.reserveCard(state, pid, { level, index, deck: !!deck }));
+  });
+
+  socket.on('sp:buy', ({ level, index, reservedId } = {}) => {
+    applySplendor(socket, (state, pid) => sp.buyCard(state, pid, { level, index, reservedId }));
+  });
+
+  socket.on('sp:return', ({ gems } = {}) => {
+    applySplendor(socket, (state, pid) => sp.returnGems(state, pid, gems));
+  });
+
+  socket.on('sp:noble', ({ nobleId } = {}) => {
+    applySplendor(socket, (state, pid) => sp.chooseNoble(state, pid, nobleId));
+  });
+
+  socket.on('sp:pass', () => {
+    applySplendor(socket, (state, pid) => sp.passTurn(state, pid));
+  });
+
   // ── Vote Rematch ─────────────────────────────────────────
   socket.on('voteRematch', () => {
     const room = getRoomBySocket(socket.id);
@@ -896,7 +1108,7 @@ io.on('connection', socket => {
     const playerIds  = room.players.map(p => p.id);
     room.gameOverSent = false;
     try {
-      room.gameState = isMahjong(room) ? mj.createGame(playerIds) : createGame(playerIds);
+      room.gameState = createGameFor(room, playerIds);
     } catch (err) {
       return emitError(socket, err.message);
     }
@@ -905,11 +1117,11 @@ io.on('connection', socket => {
       if (p) room.gameState.playerNames[id] = p.name;
     });
 
-    if (isMahjong(room)) {
+    if (isMahjong(room) || isSplendor(room)) {
       broadcastGameState(room);
       io.to(room.roomCode).emit('gameStarted');
       checkAndScheduleBotTurn(room);
-      console.log(`Mah Jong rematch started in room ${room.roomCode} with ${playerIds.length} players.`);
+      console.log(`${GAME_TYPES[gameTypeOf(room)].label} rematch started in room ${room.roomCode} with ${playerIds.length} players.`);
       return;
     }
 
@@ -983,6 +1195,8 @@ io.on('connection', socket => {
       const state = room.gameState;
       if (isMahjong(room)) {
         socket.emit('gameState', sanitizeMahjong(state, player.id));
+      } else if (isSplendor(room)) {
+        socket.emit('gameState', sanitizeSplendor(state, player.id));
       } else {
         socket.emit('gameState', {
           ...state,
