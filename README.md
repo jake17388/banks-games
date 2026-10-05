@@ -33,17 +33,12 @@ Copy `.env.example` to `.env` and adjust as needed.
 | Variable | Default | Description |
 |---|---|---|
 | `PORT` | `3001` | Port the game server listens on |
-| `CORS_ORIGINS` | localhost + Vercel + GitHub Pages | Comma-separated list of allowed frontend origins |
+| `CORS_ORIGINS` | localhost + Vercel URLs | Comma-separated list of allowed frontend origins |
 | `VITE_SERVER_URL` | `http://localhost:3001` | Backend URL used by the frontend (set at build time) |
 
 ## Deploying
 
-The frontend is published to **GitHub Pages** by `.github/workflows/pages.yml` on every push to `main`
-(share `https://jake17388.github.io/<repo-name>/`). One-time setup: Settings → Pages → Source: **GitHub Actions**,
-and add a repository variable `VITE_SERVER_URL` (Settings → Secrets and variables → Actions → Variables) pointing at
-the hosted game server. The server's `CORS_ORIGINS` must include `https://jake17388.github.io`.
-
-It can also be deployed to **Vercel** (set `VITE_SERVER_URL` to your backend URL as a build env var).
+The frontend is deployed to **Vercel** (https://banks-games.vercel.app) (set `VITE_SERVER_URL` to your backend URL as a build env var).
 
 The backend (`server.js`) needs a persistent Node.js host — **Render**, **Railway**, or **Fly.io** all have free tiers that work. Set `PORT` and `CORS_ORIGINS` as environment variables on the host.
 
