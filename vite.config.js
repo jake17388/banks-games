@@ -45,7 +45,10 @@ function appVersion() {
   }
 }
 
+// Relative base so the same build works from a GitHub Pages sub-path
+// (https://<user>.github.io/<repo>/) as well as from a domain root.
 export default defineConfig({
+  base: './',
   plugins: [
     react(),
     tailwindcss(),

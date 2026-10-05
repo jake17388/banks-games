@@ -38,7 +38,7 @@ const http = createServer(app);
 
 const allowedOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(',').map(o => o.trim())
-  : ['http://localhost:5173', 'http://localhost:4173', 'https://property-deal-chi.vercel.app'];
+  : ['http://localhost:5173', 'http://localhost:4173', 'https://property-deal-chi.vercel.app', 'https://jake17388.github.io'];
 
 const io   = new Server(http, {
   cors: { origin: allowedOrigins, methods: ['GET', 'POST'] },

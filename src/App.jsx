@@ -620,7 +620,7 @@ export default function App() {
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <div style={{ fontSize: 52, marginBottom: 8 }}>🎲</div>
         <h1 style={{ fontSize: 28, fontWeight: 800, color: '#111827', marginBottom: 4 }}>
-          Game Night
+          Banks Games
         </h1>
         <p style={{ fontSize: 14, color: '#9ca3af' }}>Multiplayer card &amp; tile games</p>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 8 }}>
