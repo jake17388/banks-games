@@ -197,6 +197,23 @@ export function useGameState(socket) {
     spBuy:           (target)                    => socket.emit('sp:buy',     target),
     spReturn:        (gems)                      => socket.emit('sp:return',  { gems }),
     spPass:          ()                          => socket.emit('sp:pass'),
+
+    // Catan
+    ctSettlement:    (vertex)                    => socket.emit('ct:settlement', { vertex }),
+    ctCity:          (vertex)                    => socket.emit('ct:city',       { vertex }),
+    ctRoad:          (edge)                      => socket.emit('ct:road',       { edge }),
+    ctRoll:          ()                          => socket.emit('ct:roll'),
+    ctDiscard:       (cards)                     => socket.emit('ct:discard',    { cards }),
+    ctRobber:        (hex)                       => socket.emit('ct:robber',     { hex }),
+    ctSteal:         (victim)                    => socket.emit('ct:steal',      { victim }),
+    ctBuyDev:        ()                          => socket.emit('ct:buyDev'),
+    ctPlayDev:       (card, options)             => socket.emit('ct:playDev',    { card, options }),
+    ctBankTrade:     (give, get)                 => socket.emit('ct:bankTrade',  { give, get }),
+    ctOffer:         (give, want)                => socket.emit('ct:offer',      { give, want }),
+    ctRespond:       (accept)                    => socket.emit('ct:respond',    { accept }),
+    ctConfirm:       (partner)                   => socket.emit('ct:confirm',    { partner }),
+    ctCancelTrade:   ()                          => socket.emit('ct:cancelTrade'),
+    ctEnd:           ()                          => socket.emit('ct:end'),
   };
 
   // What the board draws: the server's state with your unconfirmed moves
