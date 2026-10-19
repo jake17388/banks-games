@@ -1,5 +1,5 @@
 // ============================================================
-// Socket.IO Game Server — Property Deal, Mah Jong & Splendor
+// Socket.IO Game Server — Property Deal, Mah Jong, Splendor & Catan
 // Run with: node server.js
 // ============================================================
 
@@ -17,6 +17,7 @@ import {
 import { FULL_DECK } from './src/game/cards.js';
 import * as mj from './src/game/mahjong/engine.js';
 import * as sp from './src/game/splendor/engine.js';
+import * as ct from './src/game/catan/engine.js';
 import { BOT_NAMES, getBotMove, getBotResponse, getBotDiscards, getBotWildcardOverflowMove } from './src/game/botAI.js';
 import {
   BOT_NAMES as MJ_BOT_NAMES,
@@ -28,6 +29,13 @@ import {
   getBotMove as getSplendorBotMove,
   getBotFallbackMove as getSplendorBotFallbackMove,
 } from './src/game/splendor/botAI.js';
+import {
+  BOT_NAMES as CT_BOT_NAMES,
+  getBotMove as getCatanBotMove,
+  getBotFallbackMove as getCatanBotFallbackMove,
+  actorsWaiting as catanActorsWaiting,
+  playBotMove as playCatanBotMove,
+} from './src/game/catan/botAI.js';
 
 // ============================================================
 // SERVER SETUP
@@ -112,6 +120,7 @@ const GAME_TYPES = {
   property: { label: 'Property Deal', min: 2, max: 5, bots: true, botNames: BOT_NAMES    },
   mahjong:  { label: 'Mah Jong',      min: 2, max: 4, bots: true, botNames: MJ_BOT_NAMES },
   splendor: { label: 'Splendor',      min: 2, max: 4, bots: true, botNames: SP_BOT_NAMES },
+  catan:    { label: 'Catan',         min: 2, max: 4, bots: true, botNames: CT_BOT_NAMES },
 };
 
 function gameTypeOf(room) {
@@ -126,9 +135,14 @@ function isSplendor(room) {
   return gameTypeOf(room) === 'splendor';
 }
 
+function isCatan(room) {
+  return gameTypeOf(room) === 'catan';
+}
+
 function createGameFor(room, playerIds) {
   return isMahjong(room)  ? mj.createGame(playerIds)
        : isSplendor(room) ? sp.createGame(playerIds)
+       : isCatan(room)    ? ct.createGame(playerIds)
        : createGame(playerIds);
 }
 
@@ -191,6 +205,71 @@ function emitSplendorGameOver(room) {
         cards:  state.players[id].cards.length,
       }))
       .sort((a, b) => b.points - a.points || a.cards - b.cards),
+  });
+}
+
+// Catan is played in the open except for hands and development cards: other
+// players see only how many of each you hold, never what they are. The
+// development deck is likewise just a count.
+function sanitizeCatan(state, viewerId) {
+  return {
+    ...state,
+    players: Object.fromEntries(
+      Object.entries(state.players).map(([id, p]) => [id, id === viewerId
+        ? { ...p, resourceCount: ct.handSize(p.resources), devCount: p.devCards.length }
+        : {
+            ...p,
+            resources:     null,
+            devCards:      null,
+            resourceCount: ct.handSize(p.resources),
+            devCount:      p.devCards.length,
+          }])
+    ),
+    devDeck: state.devDeck.length,
+  };
+}
+
+// Runs a Catan engine call for the socket's player and pushes the result.
+function applyCatan(socket, fn) {
+  const room = getRoomBySocket(socket.id);
+  if (!room?.gameState || !isCatan(room)) return emitError(socket, 'No Catan game in progress.');
+
+  const player = getPlayerBySocket(room, socket.id);
+  if (!player) return emitError(socket, 'Player not found.');
+
+  try {
+    applyMove(room, state => fn(state, player.id));
+  } catch (err) {
+    return emitError(socket, err.message);
+  }
+
+  broadcastGameState(room);
+  emitCatanGameOver(room);
+  checkAndScheduleBotTurn(room);
+}
+
+function emitCatanGameOver(room) {
+  const state = room.gameState;
+  if (state?.phase !== 'gameover' || room.gameOverSent) return;
+  room.gameOverSent = true;
+  const winner = room.players.find(p => p.id === state.winner);
+  io.to(room.roomCode).emit('gameOver', {
+    winnerId:   state.winner,
+    winnerName: winner?.name ?? state.playerNames?.[state.winner] ?? null,
+    winnerIds:  state.winners ?? [],
+    reason:     state.endReason,
+    standings:  state.playerOrder
+      .map(id => {
+        const built = Object.values(state.buildings).filter(b => b.owner === id);
+        const cities = built.filter(b => b.type === 'city').length;
+        return {
+          id,
+          name:   state.playerNames?.[id] ?? 'Player',
+          points: ct.pointsOf(state, id),
+          detail: `${built.length - cities} settlements · ${cities} cities`,
+        };
+      })
+      .sort((a, b) => b.points - a.points),
   });
 }
 
@@ -299,6 +378,10 @@ function broadcastGameState(room) {
     }
     if (isSplendor(room)) {
       socket.emit('gameState', sanitizeSplendor(state, player.id));
+      return;
+    }
+    if (isCatan(room)) {
+      socket.emit('gameState', sanitizeCatan(state, player.id));
       return;
     }
 
@@ -464,6 +547,7 @@ function botNameOf(room, botId) {
 function checkAndScheduleBotTurn(room) {
   if (isMahjong(room))  return scheduleMahjongBot(room);
   if (isSplendor(room)) return scheduleSplendorBot(room);
+  if (isCatan(room))    return scheduleCatanBot(room);
 
   if (room.botTimeout) { clearTimeout(room.botTimeout); room.botTimeout = null; }
   if (!room.gameState || room.gameState.phase === 'gameover') return;
@@ -688,6 +772,60 @@ function executeSplendorBotMove(room, botId) {
   checkAndScheduleBotTurn(room);
 }
 
+// ── Catan bots ───────────────────────────────────────────────
+
+const CT_BOT_DELAY_MS = 900;
+
+// The bot the table is waiting on, or null. Several players can owe something
+// at once (everyone over seven cards discards; everyone answers a trade offer),
+// so this walks the list of who is being waited on until it finds a bot.
+function nextCatanBot(room) {
+  const state = room.gameState;
+  if (!state || state.phase === 'gameover') return null;
+  return catanActorsWaiting(state).find(id => room.players.some(p => p.isBot && p.id === id)) ?? null;
+}
+
+function scheduleCatanBot(room) {
+  const waitingOn = hasConnectedHuman(room) ? nextCatanBot(room) : null;
+
+  if (waitingOn && room.botTimeout && room.botTimeoutFor === waitingOn) return;
+
+  if (room.botTimeout) { clearTimeout(room.botTimeout); room.botTimeout = null; }
+  room.botTimeoutFor = waitingOn;
+  if (!waitingOn) return;
+
+  room.botTimeout = setTimeout(() => executeCatanBotMove(room, waitingOn), CT_BOT_DELAY_MS);
+}
+
+function executeCatanBotMove(room, botId) {
+  room.botTimeout    = null;
+  room.botTimeoutFor = null;
+
+  const state = room.gameState;
+  if (!state || state.phase === 'gameover') return;
+  if (nextCatanBot(room) !== botId) return;
+
+  let moved = false;
+  try {
+    moved = !!applyMove(room, s => playCatanBotMove(s, botId, getCatanBotMove(s, botId)));
+  } catch (err) {
+    console.error(`Catan bot ${botId} move error:`, err.message);
+  }
+
+  if (!moved) {
+    try {
+      moved = !!applyMove(room, s => playCatanBotMove(s, botId, getCatanBotFallbackMove(s, botId)));
+    } catch (err) {
+      console.error(`Catan bot ${botId} fallback error:`, err.message);
+    }
+  }
+  if (!moved) return;
+
+  broadcastGameState(room);
+  emitCatanGameOver(room);
+  checkAndScheduleBotTurn(room);
+}
+
 // ============================================================
 // SOCKET.IO EVENTS
 // ============================================================
@@ -791,6 +929,25 @@ io.on('connection', socket => {
       io.to(room.roomCode).emit('gameStarted');
       checkAndScheduleBotTurn(room);
       console.log(`Splendor started in room ${room.roomCode}`);
+      return;
+    }
+
+    if (isCatan(room)) {
+      try {
+        room.gameState = ct.createGame(playerIds);
+      } catch (err) {
+        return emitError(socket, err.message);
+      }
+      room.started      = true;
+      room.gameOverSent = false;
+      playerIds.forEach(id => {
+        const p = room.players.find(pl => pl.id === id);
+        if (p) room.gameState.playerNames[id] = p.name;
+      });
+      broadcastGameState(room);
+      io.to(room.roomCode).emit('gameStarted');
+      checkAndScheduleBotTurn(room);
+      console.log(`Catan started in room ${room.roomCode}`);
       return;
     }
 
@@ -966,6 +1123,22 @@ io.on('connection', socket => {
       return;
     }
 
+    if (isCatan(room)) {
+      try {
+        room.gameState = ct.resignGame(room.gameState, player.id);
+      } catch (err) {
+        return emitError(socket, err.message);
+      }
+      broadcastGameState(room);
+      if (room.gameState.phase === 'gameover') {
+        emitCatanGameOver(room);
+      } else {
+        io.to(room.roomCode).emit('playerResigned', { playerId: player.id, playerName: player.name });
+        checkAndScheduleBotTurn(room);
+      }
+      return;
+    }
+
     if (isMahjong(room)) {
       try {
         room.gameState = mj.resignGame(room.gameState, player.id);
@@ -1067,6 +1240,68 @@ io.on('connection', socket => {
     applySplendor(socket, (state, pid) => sp.passTurn(state, pid));
   });
 
+  // ── Catan ────────────────────────────────────────────────
+
+  socket.on('ct:settlement', ({ vertex } = {}) => {
+    applyCatan(socket, (state, pid) => ct.buildSettlement(state, pid, vertex));
+  });
+
+  socket.on('ct:city', ({ vertex } = {}) => {
+    applyCatan(socket, (state, pid) => ct.buildCity(state, pid, vertex));
+  });
+
+  socket.on('ct:road', ({ edge } = {}) => {
+    applyCatan(socket, (state, pid) => ct.buildRoad(state, pid, edge));
+  });
+
+  socket.on('ct:roll', () => {
+    applyCatan(socket, (state, pid) => ct.roll(state, pid));
+  });
+
+  socket.on('ct:discard', ({ cards } = {}) => {
+    applyCatan(socket, (state, pid) => ct.discard(state, pid, cards));
+  });
+
+  socket.on('ct:robber', ({ hex } = {}) => {
+    applyCatan(socket, (state, pid) => ct.moveRobber(state, pid, hex));
+  });
+
+  socket.on('ct:steal', ({ victim } = {}) => {
+    applyCatan(socket, (state, pid) => ct.steal(state, pid, victim));
+  });
+
+  socket.on('ct:buyDev', () => {
+    applyCatan(socket, (state, pid) => ct.buyDevCard(state, pid));
+  });
+
+  socket.on('ct:playDev', ({ card, options } = {}) => {
+    applyCatan(socket, (state, pid) => ct.playDevCard(state, pid, card, options ?? {}));
+  });
+
+  socket.on('ct:bankTrade', ({ give, get } = {}) => {
+    applyCatan(socket, (state, pid) => ct.bankTrade(state, pid, give, get));
+  });
+
+  socket.on('ct:offer', ({ give, want } = {}) => {
+    applyCatan(socket, (state, pid) => ct.offerTrade(state, pid, give, want));
+  });
+
+  socket.on('ct:respond', ({ accept } = {}) => {
+    applyCatan(socket, (state, pid) => ct.respondTrade(state, pid, !!accept));
+  });
+
+  socket.on('ct:confirm', ({ partner } = {}) => {
+    applyCatan(socket, (state, pid) => ct.confirmTrade(state, pid, partner));
+  });
+
+  socket.on('ct:cancelTrade', () => {
+    applyCatan(socket, (state, pid) => ct.cancelTrade(state, pid));
+  });
+
+  socket.on('ct:end', () => {
+    applyCatan(socket, (state, pid) => ct.endTurn(state, pid));
+  });
+
   // ── Vote Rematch ─────────────────────────────────────────
   socket.on('voteRematch', () => {
     const room = getRoomBySocket(socket.id);
@@ -1112,7 +1347,7 @@ io.on('connection', socket => {
       if (p) room.gameState.playerNames[id] = p.name;
     });
 
-    if (isMahjong(room) || isSplendor(room)) {
+    if (isMahjong(room) || isSplendor(room) || isCatan(room)) {
       broadcastGameState(room);
       io.to(room.roomCode).emit('gameStarted');
       checkAndScheduleBotTurn(room);
@@ -1192,6 +1427,8 @@ io.on('connection', socket => {
         socket.emit('gameState', sanitizeMahjong(state, player.id));
       } else if (isSplendor(room)) {
         socket.emit('gameState', sanitizeSplendor(state, player.id));
+      } else if (isCatan(room)) {
+        socket.emit('gameState', sanitizeCatan(state, player.id));
       } else {
         socket.emit('gameState', {
           ...state,

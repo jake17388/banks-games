@@ -5,6 +5,7 @@ import GameBoard                           from './components/GameBoard.jsx';
 import MahjongBoard                       from './components/mahjong/MahjongBoard.jsx';
 import MahjongReveal                      from './components/mahjong/MahjongReveal.jsx';
 import SplendorBoard                      from './components/splendor/SplendorBoard.jsx';
+import CatanBoard                         from './components/catan/CatanBoard.jsx';
 import DebugSetup                          from './components/DebugSetup.jsx';
 import Settings                            from './components/Settings.jsx';
 import { cleanUpdateUrl }                  from './hooks/useAppVersion.js';
@@ -34,6 +35,12 @@ const GAMES = {
     tagline: 'Collect gems, buy mines, race to 15 prestige points',
     players: '2–4 players', accent: '#7c3aed', tint: '#f5f3ff', border: '#c4b5fd',
     bots: true, botNames: ['Midas', 'Croesus', 'Medici'],
+  },
+  catan: {
+    key: 'catan', name: 'Catan', icon: '🏝️',
+    tagline: 'Settle the island, trade, and race to 10 victory points',
+    players: '2–4 players', accent: '#c2410c', tint: '#fff7ed', border: '#fdba74',
+    bots: true, botNames: ['Marco', 'Isabella', 'Magellan'],
   },
 };
 
@@ -153,6 +160,7 @@ export default function App() {
                 : gameOver.reason === 'wall'      ? 'The wall ran out before anyone completed a hand'
                 : gameOver.reason === 'deckEmpty' ? 'The deck ran out — most complete sets takes it'
                 : gameOver.reason === 'points'    ? 'Most prestige points after the final round — fewer cards breaks a tie'
+                : gameOver.reason === 'victory'   ? 'First to ten victory points'
                 : 'Great game everyone!'}
             </p>
           </div>
@@ -170,7 +178,7 @@ export default function App() {
                 }}>
                   <span style={{ width: 22, textAlign: 'center' }}>{gameOver.winnerIds?.includes(s.id) ? '🏆' : ''}</span>
                   <span style={{ flex: 1 }}>{s.name}{s.id === playerId ? ' (you)' : ''}</span>
-                  <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 500 }}>{s.cards} cards</span>
+                  <span style={{ fontSize: 11, color: '#9ca3af', fontWeight: 500 }}>{s.detail ?? `${s.cards} cards`}</span>
                   <span style={{ minWidth: 44, textAlign: 'right', color: '#b45309' }}>{s.points} pts</span>
                 </div>
               ))}
@@ -297,6 +305,18 @@ export default function App() {
   // ── In Game ─────────────────────────────────────────────
   if (gameState?.gameType === 'mahjong') return (
     <MahjongBoard
+      gameState={gameState}
+      playerId={playerId}
+      playerNames={Object.fromEntries(
+        roomInfo?.players?.map(p => [p.id, p.name]) ?? []
+      )}
+      actions={actions}
+      resignedPlayer={resignedPlayer}
+    />
+  );
+
+  if (gameState?.gameType === 'catan') return (
+    <CatanBoard
       gameState={gameState}
       playerId={playerId}
       playerNames={Object.fromEntries(

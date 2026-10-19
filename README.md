@@ -9,6 +9,7 @@ Enter your name, pick a game, then create a room or join one with a code:
 | **Property Deal** — inspired by Monopoly Deal | 2–5 | yes |
 | **Mah Jong** — American mahjong | 2–4 | yes |
 | **Splendor** — gem-trading engine builder | 2–4 | yes |
+| **Catan** — settle an island, trade, and build | 2–4 | yes |
 
 ## Running locally
 
@@ -212,6 +213,60 @@ points. If that one card completes several nobles, you take all of them.
 the same number of turns. The highest score wins; a tie goes to the player with
 **fewer purchased cards**. Bots (Midas, Croesus and Medici) are available.
 
+## How to play — Catan
+
+Settle the island and be the first to **10 victory points**. The rules and flow follow
+the base game as Colonist.io plays it: a randomised island of 19 tiles (the red 6s
+and 8s never touch), nine harbours, and the usual 25 development cards.
+
+**Setup.** Players take turns in a snake draft — each places a settlement and a
+connecting road, then the order reverses for the second pair. Your **second
+settlement** pays out one card for each resource tile around it. Tap a glowing spot
+on the board to place.
+
+**Your turn.**
+
+1. **Roll the dice.** Every settlement next to a tile showing that number pays one
+   card of its resource, and every city pays two. (You may play a Knight before
+   rolling.)
+2. **Build and trade** in any order — the buttons under your hand show the costs:
+   - **Road** — lumber + brick. Roads grow from your own roads and buildings, and
+     can't pass through a spot an opponent has built on.
+   - **Settlement** — lumber + brick + wool + grain. It needs to connect to your road
+     and sit at least two roads from any other settlement or city. Worth 1 point.
+   - **City** — 2 grain + 3 ore, upgrading one of your settlements. Worth 2 points.
+   - **Development card** — wool + grain + ore (tap **Cards**).
+3. **End turn.**
+
+**Rolling a 7.** Nobody collects. Anyone holding more than 7 cards discards half
+(rounded down), then the roller moves the **robber** to a different tile — it blocks
+that tile's number until it moves again — and steals a random card from a player
+next to it (you choose, if there are several).
+
+**Trading.**
+
+- **With the bank** — 4 of one resource for 1 of another. A **3:1 harbour** on one of
+  your settlements makes it 3:1, and a **2:1 harbour** makes that one resource 2:1.
+  The trade sheet shows the ratio on each resource.
+- **With players** — on the trade sheet's *With players* tab, name what you give and
+  what you want and offer it to the table. Everyone can accept or decline; when
+  someone accepts you confirm the trade with them (or cancel the offer).
+
+**Development cards** (one per turn, and never on the turn you bought it): **Knight**
+moves the robber, **Road Building** gives two free roads, **Year of Plenty** takes any
+two resources from the bank, **Monopoly** takes every card of one resource from the
+other players, and **Victory Point** cards are worth a point each — kept secret and
+counted automatically.
+
+**Bonuses.** **Longest Road** (an unbroken run of 5 or more roads, beaten only by a
+strictly longer one) and **Largest Army** (3 or more Knights played, same rule) are
+each worth 2 points. A settlement built in the middle of someone's road cuts it.
+
+**Winning.** The moment you have 10 points *on your own turn* you win. Other players
+see only your public points; hidden Victory Point cards stay hidden until then.
+Bots (Marco, Isabella and Magellan) are available, and accept trade offers that help
+them.
+
 ## Tech stack
 
 - **Frontend**: React 19, Vite, Tailwind CSS, Socket.IO client
@@ -226,3 +281,7 @@ the same number of turns. The highest score wins; a tie goes to the player with
   - Splendor — `src/game/splendor/`: `cards.js` (the 90 cards and 10 nobles),
     `engine.js` (setup, the four actions, the ten-gem limit, nobles, end of game),
     `botAI.js` (the bots)
+  - Catan — `src/game/catan/`: `board.js` (hex/vertex/edge geometry shared by
+    server and client, the dealt island and harbours), `engine.js` (setup draft,
+    dice and the robber, building, bank and player trades, development cards,
+    longest road and largest army), `botAI.js` (the bots)
