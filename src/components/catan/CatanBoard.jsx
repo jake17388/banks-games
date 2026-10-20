@@ -7,7 +7,6 @@ import {
 } from '../../game/catan/engine.js';
 
 const FONT = '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif';
-const DICE = '⚀⚁⚂⚃⚄⚅';
 
 const DEV_BLURB = {
   knight:       'Move the robber and steal a card. Three played makes the Largest Army.',
@@ -55,39 +54,55 @@ function ResourceCard({ resource, count, onClick, selected, dim, label, testId }
   );
 }
 
-function PlayerTile({ state, id, name, current, isMe }) {
+function PlayerTile({ state, id, name, current, isMe, chip }) {
   const p = state.players[id];
   const c = PLAYER_COLORS[p.color];
+  const light = p.color === 3;
+  const roadHolder = state.longestRoad.holder === id;
+  const armyHolder = state.largestArmy.holder === id;
+  const stat = (hot) => ({ color: hot ? '#fde047' : '#e2e8f0', fontWeight: hot ? 800 : 600 });
   return (
-    <div data-testid={`player-${id}`} style={{
-      flex: 1, minWidth: 0, background: '#fff', borderRadius: 12, padding: '6px 8px',
-      border: `2px solid ${current ? '#facc15' : 'transparent'}`,
-      boxShadow: current ? '0 0 0 2px rgba(250,204,21,0.35)' : '0 1px 2px rgba(0,0,0,0.08)',
-    }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
-        <span style={{ width: 12, height: 12, borderRadius: '50%', background: c.fill, border: `2px solid ${c.dark}`, flexShrink: 0 }} />
-        <span style={{ fontSize: 12, fontWeight: 700, color: '#111827', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-          {isMe ? 'You' : name}
-        </span>
-      </div>
-      <div style={{ display: 'flex', alignItems: 'baseline', gap: 6, marginTop: 1 }}>
-        <span data-testid={`points-${id}`} style={{ fontSize: 20, fontWeight: 800, color: '#b45309', lineHeight: 1.1 }}>
-          {pointsOf(state, id)}
-        </span>
-        <span style={{ fontSize: 10, color: '#9ca3af', fontWeight: 600 }}>VP</span>
-      </div>
-      <div style={{ display: 'flex', gap: 5, fontSize: 10.5, color: '#4b5563', flexWrap: 'wrap', fontWeight: 600 }}>
-        <span title="Resource cards">🎴{cardsIn(p)}</span>
-        <span title="Development cards">🃏{p.devCount ?? p.devCards.length}</span>
-        <span title="Knights played">⚔️{p.knights}</span>
-        <span title="Longest road">🛣️{longestRoadOf(state, id)}</span>
-      </div>
-      {(state.longestRoad.holder === id || state.largestArmy.holder === id) && (
-        <div style={{ fontSize: 9.5, fontWeight: 800, color: '#92400e', marginTop: 2, lineHeight: 1.25 }}>
-          {state.longestRoad.holder === id && <div>🏆 LONGEST ROAD</div>}
-          {state.largestArmy.holder === id && <div>🏆 LARGEST ARMY</div>}
+    <div data-testid={`player-${id}`} style={{ flex: 1, minWidth: 0, maxWidth: 170 }}>
+      <div style={{
+        borderRadius: 10, overflow: 'hidden', background: '#16305f',
+        boxShadow: current ? '0 0 0 2px #facc15, 0 2px 8px rgba(0,0,0,0.35)' : '0 2px 6px rgba(0,0,0,0.3)',
+        transition: 'box-shadow 200ms',
+      }}>
+        <div style={{
+          background: c.fill, height: 26, display: 'flex', alignItems: 'center', gap: 4, paddingRight: 6,
+          color: light ? '#1f2937' : '#fff',
+        }}>
+          <span data-testid={`points-${id}`} style={{
+            width: 28, height: 28, margin: '-2px 0 -2px -2px', borderRadius: '50%', background: '#111827', color: '#fff',
+            border: `2px solid ${c.dark}`, display: 'flex', alignItems: 'center', justifyContent: 'center',
+            fontSize: 15, fontWeight: 800, flexShrink: 0, zIndex: 1,
+          }}>{pointsOf(state, id)}</span>
+          <span style={{ fontSize: 12, fontWeight: 700, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {isMe ? 'You' : name}
+          </span>
         </div>
-      )}
+        <div style={{
+          height: 44, padding: '4px 8px', display: 'grid', gridTemplateColumns: '1fr 1fr',
+          alignContent: 'center', columnGap: 4, rowGap: 1, fontSize: 11.5,
+        }}>
+          <span title="Resource cards" style={stat()}>🎴 {cardsIn(p)}</span>
+          <span title="Development cards" style={stat()}>🃏 {p.devCount ?? p.devCards.length}</span>
+          <span title="Knights played (Largest Army)" style={stat(armyHolder)}>⚔️ {p.knights}</span>
+          <span title="Longest road" style={stat(roadHolder)}>🛣️ {longestRoadOf(state, id)}</span>
+        </div>
+      </div>
+      <div style={{ height: 38, marginTop: 3, visibility: chip ? 'visible' : 'hidden' }}>
+        {chip && (
+          <div key={chip.title + chip.sub} className="ct-chip" style={{
+            height: '100%', borderRadius: 8, background: chip.tone === 'active' ? '#3b82f6' : 'rgba(15,35,75,0.75)',
+            color: '#fff', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+            lineHeight: 1.2, padding: '0 4px', textAlign: 'center', overflow: 'hidden',
+          }}>
+            <span style={{ fontSize: 12, fontWeight: 700, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{chip.title}</span>
+            <span style={{ fontSize: 10.5, opacity: 0.85, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100%' }}>{chip.sub}</span>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -96,11 +111,11 @@ function PlayerTile({ state, id, name, current, isMe }) {
 
 function Sheet({ onClose, children, testId }) {
   return (
-    <div onClick={onClose} style={{
+    <div onClick={onClose} className="ct-fade" style={{
       position: 'fixed', inset: 0, zIndex: 100, background: 'rgba(17,24,39,0.5)',
       display: 'flex', alignItems: 'flex-end', justifyContent: 'center',
     }}>
-      <div data-testid={testId} onClick={e => e.stopPropagation()} style={{
+      <div data-testid={testId} className="ct-sheet" onClick={e => e.stopPropagation()} style={{
         background: '#fff', borderRadius: '16px 16px 0 0', width: '100%', maxWidth: 520,
         padding: '18px 18px 28px', maxHeight: '88%', overflowY: 'auto',
       }}>
@@ -462,13 +477,109 @@ function OfferBanner({ state, playerId, name, actions }) {
   );
 }
 
+// ── Fixed-layout pieces ──────────────────────────────────────
+
+const PIPS = {
+  1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8], 5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8],
+};
+
+function Die({ value, dim }) {
+  return (
+    <div style={{
+      width: 46, height: 46, borderRadius: 10, background: '#f8fafc', boxShadow: '0 3px 0 #94a3b8, 0 4px 8px rgba(0,0,0,0.3)',
+      display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gridTemplateRows: 'repeat(3, 1fr)',
+      padding: 7, opacity: dim ? 0.5 : 1, transition: 'opacity 200ms',
+    }}>
+      {Array.from({ length: 9 }, (_, i) => (
+        <span key={i} style={{
+          width: 8, height: 8, borderRadius: '50%', placeSelf: 'center',
+          background: PIPS[value].includes(i) ? '#1e293b' : 'transparent',
+        }} />
+      ))}
+    </div>
+  );
+}
+
+// A card in the hand strip: art, with the count in a corner badge.
+function HandCard({ bg, icon, count, testId, onClick, label }) {
+  const Tag = onClick ? 'button' : 'div';
+  return (
+    <Tag data-testid={testId} onClick={onClick} className="ct-card-in" style={{
+      position: 'relative', flex: '0 0 auto', width: 52, height: 74, borderRadius: 9, background: bg,
+      border: '2px solid rgba(255,255,255,0.7)', boxShadow: '0 2px 5px rgba(0,0,0,0.35)', padding: 0,
+      display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 2,
+      cursor: onClick ? 'pointer' : 'default', color: '#fff', textShadow: '0 1px 2px rgba(0,0,0,0.45)',
+    }}>
+      <span style={{ fontSize: 26, lineHeight: 1 }}>{icon}</span>
+      {label && <span style={{ fontSize: 9, fontWeight: 700 }}>{label}</span>}
+      <span style={{
+        position: 'absolute', top: -5, right: -5, minWidth: 20, height: 20, borderRadius: 10, background: '#2563eb',
+        border: '2px solid #fff', fontSize: 11, fontWeight: 800, display: 'flex', alignItems: 'center',
+        justifyContent: 'center', padding: '0 3px', textShadow: 'none',
+      }}>{count}</span>
+    </Tag>
+  );
+}
+
+const DEV_ICON = { knight: '⚔️', roadBuilding: '🛣️', yearOfPlenty: '🎁', monopoly: '🎩', victoryPoint: '🏆' };
+
+function ActionButton({ icon, label, onClick, enabled, hot, testId }) {
+  return (
+    <button data-testid={testId} onClick={enabled ? onClick : undefined} disabled={!enabled}
+            className={hot ? 'ct-hot' : undefined} style={{
+      width: 74, height: 60, borderRadius: 14, flexShrink: 0,
+      background: hot ? '#38bdf8' : enabled ? '#7cc3ee' : '#4d86b8',
+      border: `3px solid ${hot ? '#fff' : enabled ? '#d9f1ff' : '#6d9cc7'}`,
+      boxShadow: '0 3px 8px rgba(0,0,0,0.3)', color: '#0f2f55', opacity: enabled ? 1 : 0.6,
+      cursor: enabled ? 'pointer' : 'default', display: 'flex', flexDirection: 'column',
+      alignItems: 'center', justifyContent: 'center', gap: 0, padding: 0,
+    }}>
+      <span style={{ fontSize: 24, lineHeight: 1.1 }}>{icon}</span>
+      <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: '0.02em' }}>{label}</span>
+    </button>
+  );
+}
+
+function InfoSheet({ onClose }) {
+  const rows = [
+    ['🛣️ Road', '🪵🧱'], ['🏠 Settlement', '🪵🧱🐑🌾'], ['🏙️ City', '🌾🌾🪨🪨🪨'], ['🃏 Development card', '🐑🌾🪨'],
+  ];
+  return (
+    <Sheet onClose={onClose}>
+      <div style={{ fontSize: 18, fontWeight: 800, color: '#111827', marginBottom: 10 }}>Building costs</div>
+      {rows.map(([n, c]) => (
+        <div key={n} style={{ display: 'flex', justifyContent: 'space-between', padding: '9px 0', borderBottom: '1px solid #f3f4f6', fontSize: 15 }}>
+          <span style={{ fontWeight: 700, color: '#111827' }}>{n}</span><span>{c}</span>
+        </div>
+      ))}
+      <div style={{ fontSize: 12.5, color: '#6b7280', marginTop: 12, lineHeight: 1.5 }}>
+        First to {WIN_POINTS} victory points wins. Settlement 1 point, city 2, Longest Road 2, Largest Army 2.
+      </div>
+      <button onClick={onClose} style={btn('#f3f4f6', '#6b7280')}>Close</button>
+    </Sheet>
+  );
+}
+
+const topBtn = {
+  width: 40, height: 40, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.85)', background: 'rgba(15,35,75,0.55)',
+  color: '#fff', fontSize: 19, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0,
+};
+
 // ── The screen ───────────────────────────────────────────────
+//
+// The layout never changes shape: top bar, player row, board, action row and
+// hand strip are all fixed heights, and everything that comes and goes (trade
+// offers, the latest log line, the build menu) floats over the board or fills
+// a slot that is always there. Buttons dim when they can't be used rather than
+// disappearing, so the board never moves.
 
 export default function CatanBoard({ gameState, playerId, playerNames, actions, resignedPlayer }) {
   const [mode,  setMode]  = useState(null);     // road | settlement | city: what a tap on the board builds
-  const [sheet, setSheet] = useState(null);     // trade | dev
+  const [sheet, setSheet] = useState(null);     // trade | dev | info
   const [showLog, setShowLog] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showBuild, setShowBuild] = useState(false);
+  const [lastDice, setLastDice] = useState(null);
 
   const state     = gameState;
   const order     = state.playerOrder;
@@ -479,6 +590,16 @@ export default function CatanBoard({ gameState, playerId, playerNames, actions, 
   const isMyTurn  = currentId === playerId && !over;
   const stage     = state.turnStage;
   const name      = id => playerNames?.[id] ?? state.playerNames?.[id] ?? 'Player';
+
+  // The dice stay on the table after the turn ends, like the real thing.
+  if (state.dice && (!lastDice || lastDice[0] !== state.dice[0] || lastDice[1] !== state.dice[1])) {
+    setLastDice(state.dice);
+  }
+  const shownDice = state.dice ?? lastDice;
+
+  // You come first in the row; the others follow in turn order.
+  const mySeat = Math.max(0, order.indexOf(playerId));
+  const seats  = [...order.slice(mySeat), ...order.slice(0, mySeat)];
 
   const myMain = isMyTurn && stage === 'main';
   const buildMode = myMain ? mode : null;
@@ -510,7 +631,6 @@ export default function CatanBoard({ gameState, playerId, playerNames, actions, 
       road:       me.pieces.road > 0 && canPay(me.resources, COSTS.road) && legalRoadEdges(state, playerId).length > 0,
       settlement: me.pieces.settlement > 0 && canPay(me.resources, COSTS.settlement) && legalSettlementVertices(state, playerId).length > 0,
       city:       me.pieces.city > 0 && canPay(me.resources, COSTS.city) && legalCityVertices(state, playerId).length > 0,
-      dev:        state.devDeck > 0 && canPay(me.resources, COSTS.dev),
     };
   }, [state, me, playerId, myMain]);
 
@@ -529,191 +649,175 @@ export default function CatanBoard({ gameState, playerId, playerNames, actions, 
     actions.ctRobber(id);
   }
 
-  // ── Status line ──
-  let status, tone = 'idle';
-  if (over) status = state.winner ? `${name(state.winner)} won the game` : 'Game over';
+  // ── What the current player's tile says ──
+  const NOW = { roll: 'Rolling…', robber: 'Robber', steal: 'Stealing…', roadBuilding: 'Free roads', main: 'Playing…' };
+  let chip;
+  if (over) chip = { title: 'Winner!', sub: name(state.winner), tone: 'active' };
   else if (inSetup) {
     const who = state.setup.seq[state.setup.index];
-    if (who === playerId) { status = placed === null ? 'Place a settlement' : 'Now place a road next to it'; tone = 'active'; }
-    else status = `${name(who)} is placing…`;
-  } else if (pendingDiscard !== undefined) { status = `Discard ${pendingDiscard} cards`; tone = 'active'; }
-  else if (stage === 'discard') {
-    const waiting = Object.keys(state.discarding).map(name).join(', ');
-    status = `Waiting for ${waiting} to discard…`;
+    const mine = who === playerId;
+    const next = state.setup.placed === null ? 'Settlement' : 'Road';
+    chip = { who, title: mine ? `Place ${next}` : 'Setup', sub: mine ? 'Tap a glowing spot' : `Placing ${next.toLowerCase()}…`, tone: mine ? 'active' : 'idle' };
+  } else if (stage === 'discard') {
+    const waiting = Object.keys(state.discarding);
+    chip = { who: currentId, title: 'Discarding', sub: pendingDiscard !== undefined ? `Discard ${pendingDiscard}` : `${waiting.map(name).join(', ')}`, tone: pendingDiscard !== undefined ? 'active' : 'idle' };
   } else if (isMyTurn) {
-    tone = 'active';
-    status = {
-      roll:         'Your turn — roll the dice',
-      robber:       'Move the robber — tap a tile',
-      steal:        'Choose who to rob',
-      roadBuilding: `Place your free road${state.freeRoads > 1 ? 's' : ''} (${state.freeRoads} left)`,
-      main:         buildMode ? `Tap a spot to build a ${buildMode}` : 'Build, trade, or end your turn',
-    }[stage];
-  } else status = `${name(currentId)} is ${stage === 'roll' ? 'about to roll' : stage === 'robber' ? 'moving the robber' : 'playing'}…`;
+    const t = {
+      roll:         ['Your Turn', 'Roll the dice'],
+      robber:       ['Move Robber', 'Tap a tile'],
+      steal:        ['Steal', 'Choose a player'],
+      roadBuilding: ['Free Roads', `${state.freeRoads} left — tap a road`],
+      main:         buildMode ? [`Build ${buildMode[0].toUpperCase()}${buildMode.slice(1)}`, 'Tap a glowing spot'] : ['Your Turn', 'Build, trade, end'],
+    }[stage] ?? ['Your Turn', ''];
+    chip = { who: currentId, title: t[0], sub: t[1], tone: 'active' };
+  } else chip = { who: currentId, title: 'Their Turn', sub: NOW[stage] ?? 'Playing…', tone: 'idle' };
+  const chipFor = id => (chip && (chip.who ?? currentId) === id ? chip : null);
 
-  const lastLog = state.log[state.log.length - 1]?.message;
-  const iconBtn = {
-    background: '#f3f4f6', border: 'none', borderRadius: 10, width: 36, height: 36, fontSize: 18,
-    cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center',
-  };
+  const lastLog = state.log[state.log.length - 1];
   const canPlayDev = {
     any:  isMyTurn && (stage === 'roll' || stage === 'main') && !state.devPlayed,
     main: myMain,
   };
 
-  const buildBtn = (kind, icon, label, cost) => {
+  // The one big button: roll, then end turn, and an hourglass while you wait.
+  const primary = isMyTurn && stage === 'roll'
+    ? { icon: '🎲', label: 'ROLL', testId: 'roll', on: actions.ctRoll, enabled: true, hot: true }
+    : myMain
+      ? { icon: '⏭️', label: 'END TURN', testId: 'end-turn', on: () => { setMode(null); setShowBuild(false); actions.ctEnd(); }, enabled: true, hot: false }
+      : { icon: '⏳', label: over ? 'DONE' : 'WAIT', testId: 'wait', on: undefined, enabled: false, hot: false };
+
+  const buildRow = (kind, icon, label, cost) => {
     const on = !!can[kind];
-    const active = buildMode === kind;
     return (
       <button key={kind} data-testid={`build-${kind}`} disabled={!on}
-              onClick={() => setMode(active ? null : kind)}
+              onClick={() => { setMode(buildMode === kind ? null : kind); setShowBuild(false); }}
               style={{
-                flex: 1, minWidth: 0, borderRadius: 12, padding: '7px 2px', cursor: on ? 'pointer' : 'not-allowed',
-                border: `2px solid ${active ? '#facc15' : on ? '#16a34a' : '#e5e7eb'}`,
-                background: active ? '#fef9c3' : on ? '#f0fdf4' : '#f9fafb',
-                color: on ? '#14532d' : '#9ca3af', opacity: on ? 1 : 0.7,
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
+                width: '100%', display: 'flex', alignItems: 'center', gap: 10, padding: '9px 12px', border: 'none',
+                borderBottom: '1px solid rgba(255,255,255,0.12)', background: buildMode === kind ? '#2563eb' : 'transparent',
+                color: '#fff', opacity: on ? 1 : 0.4, cursor: on ? 'pointer' : 'default', textAlign: 'left',
               }}>
-        <span style={{ fontSize: 19, lineHeight: 1.1 }}>{icon}</span>
-        <span style={{ fontSize: 11, fontWeight: 700 }}>{label}</span>
-        <span style={{ fontSize: 10, letterSpacing: '-0.02em' }}>{cost}</span>
+        <span style={{ fontSize: 20 }}>{icon}</span>
+        <span style={{ flex: 1, fontSize: 14, fontWeight: 700 }}>{label}</span>
+        <span style={{ fontSize: 13 }}>{cost}</span>
       </button>
     );
   };
 
-  const primary = (bg, enabled = true) => ({
-    flex: 1, border: 'none', borderRadius: 12, padding: '12px', fontSize: 15, fontWeight: 800,
-    color: '#fff', background: enabled ? bg : '#d1d5db', cursor: enabled ? 'pointer' : 'not-allowed',
-  });
-  const secondary = on => ({
-    flex: 1, border: '1px solid #d1d5db', borderRadius: 12, padding: '10px 4px', fontSize: 13, fontWeight: 700,
-    background: '#fff', color: on ? '#111827' : '#9ca3af', cursor: on ? 'pointer' : 'not-allowed',
-  });
+  const myDev = me ? ['knight', 'roadBuilding', 'yearOfPlenty', 'monopoly', 'victoryPoint']
+    .map(type => [type, me.devCards.filter(c => c.type === type).length]).filter(([, n]) => n > 0) : [];
 
   return (
     <div style={{
-      height: '100%', display: 'flex', flexDirection: 'column', background: '#f3f4f6', fontFamily: FONT,
-      maxWidth: 560, margin: '0 auto', width: '100%',
+      height: '100%', display: 'flex', flexDirection: 'column', background: '#2b6198', fontFamily: FONT,
+      maxWidth: 560, margin: '0 auto', width: '100%', position: 'relative', overflow: 'hidden', userSelect: 'none',
     }}>
-      {/* ── Header ── */}
-      <div style={{
-        background: '#fff', borderBottom: '1px solid #e5e7eb', padding: '8px 14px',
-        display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0,
-      }}>
-        <span style={{ fontWeight: 800, fontSize: 16, color: '#111827' }}>🏝️ Catan</span>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <div style={{
-            fontSize: 12, fontWeight: 600, borderRadius: 20, padding: '4px 12px',
-            background: isMyTurn ? '#dcfce7' : '#f3f4f6', color: isMyTurn ? '#166534' : '#6b7280',
-            border: `1px solid ${isMyTurn ? '#86efac' : '#e5e7eb'}`,
-          }}>
-            {isMyTurn ? '✦ Your Turn' : `${name(currentId)}'s turn`}
-          </div>
-          <button onClick={() => setShowLog(true)} style={iconBtn} title="Game log">📋</button>
-          <button onClick={() => setShowSettings(true)} style={iconBtn}>⚙️</button>
+      {/* ── Top bar ── */}
+      <div style={{ height: 54, padding: '0 10px', display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0, position: 'relative', zIndex: 30 }}>
+        <button onClick={() => setShowSettings(true)} style={topBtn} title="Settings" aria-label="Settings">⚙️</button>
+        <button onClick={() => setSheet('info')} style={{ ...topBtn, fontFamily: 'Georgia, serif', fontStyle: 'italic', fontWeight: 700 }} title="Costs" aria-label="Building costs">i</button>
+        <div data-testid="bank" style={{
+          flex: 1, minWidth: 0, display: 'flex', justifyContent: 'center', gap: 3, background: 'rgba(15,35,75,0.45)',
+          borderRadius: 10, padding: '4px 5px',
+        }}>
+          {RESOURCES.map(r => (
+            <span key={r} title={RESOURCE_NAMES[r]} style={{
+              flex: 1, maxWidth: 40, textAlign: 'center', borderRadius: 5, background: RESOURCE_COLOR[r], color: '#fff',
+              fontSize: 11, fontWeight: 800, padding: '2px 0', lineHeight: 1.2, textShadow: '0 1px 1px rgba(0,0,0,0.4)',
+            }}>{RESOURCE_ICON[r]}{state.bank[r]}</span>
+          ))}
+          <span title="Development cards left" style={{
+            flex: 1, maxWidth: 40, textAlign: 'center', borderRadius: 5, background: '#7c3aed', color: '#fff',
+            fontSize: 11, fontWeight: 800, padding: '2px 0', lineHeight: 1.2,
+          }}>🃏{state.devDeck}</span>
         </div>
+        <button data-testid="build-menu" onClick={() => setShowBuild(v => !v)} style={{ ...topBtn, width: 54, borderRadius: 20, gap: 2, fontSize: 18 }}
+                title="Build" aria-label="Build menu">🏠<span style={{ fontSize: 11 }}>{showBuild ? '▲' : '▼'}</span></button>
       </div>
 
-      {resignedPlayer && (
-        <div style={{
-          background: '#fef2f2', borderBottom: '1px solid #fca5a5', padding: '8px 16px',
-          fontSize: 13, fontWeight: 600, color: '#dc2626', textAlign: 'center', flexShrink: 0,
-        }}>
-          {resignedPlayer} has resigned from the game
-        </div>
-      )}
-
-      {/* ── Scoreboard ── */}
-      <div style={{ display: 'flex', gap: 6, padding: '8px 8px 4px', flexShrink: 0 }}>
-        {order.map(id => (
-          <PlayerTile key={id} state={state} id={id} name={name(id)} current={id === currentId && !over} isMe={id === playerId} />
+      {/* ── Players ── */}
+      <div style={{ height: 112, display: 'flex', justifyContent: 'center', gap: 8, padding: '0 10px', flexShrink: 0 }}>
+        {seats.map(id => (
+          <PlayerTile key={id} state={state} id={id} name={name(id)} isMe={id === playerId}
+                      current={id === currentId && !over} chip={chipFor(id)} />
         ))}
       </div>
 
-      <div data-testid="status" style={{
-        background: tone === 'active' ? '#ecfdf5' : '#fff', borderTop: '1px solid #e5e7eb', borderBottom: '1px solid #e5e7eb',
-        padding: '6px 14px', textAlign: 'center', flexShrink: 0,
-        fontSize: 13, fontWeight: 700, color: tone === 'active' ? '#166534' : '#6b7280',
-      }}>
-        {status}
-        {lastLog && <div style={{ fontSize: 11, fontWeight: 500, color: '#9ca3af', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{lastLog}</div>}
-      </div>
-
       {/* ── Board ── */}
-      <div style={{ flex: 1, minHeight: 0, position: 'relative', background: '#1b5f8f' }}>
+      <div style={{ flex: 1, minHeight: 0, position: 'relative' }}>
         <BoardSvg state={state} targets={targets} onVertex={onVertex} onEdge={onEdge} onHex={onHex} />
-        {state.dice && (
-          <div data-testid="dice" style={{
-            position: 'absolute', left: 8, bottom: 8, background: 'rgba(255,255,255,0.92)', borderRadius: 12,
-            padding: '2px 10px', display: 'flex', alignItems: 'center', gap: 6,
-          }}>
-            <span style={{ fontSize: 34, lineHeight: 1.15, color: '#111827' }}>{DICE[state.dice[0] - 1]}{DICE[state.dice[1] - 1]}</span>
-            <span style={{ fontSize: 18, fontWeight: 800, color: state.dice[0] + state.dice[1] === 7 ? '#b91c1c' : '#111827' }}>
-              {state.dice[0] + state.dice[1]}
-            </span>
-          </div>
-        )}
-      </div>
 
-      {/* ── Dock ── */}
-      <div style={{ background: '#fff', borderTop: '1px solid #e5e7eb', padding: '8px 10px 12px', flexShrink: 0 }}>
+        {resignedPlayer && (
+          <div style={{
+            position: 'absolute', top: 6, left: 10, right: 10, background: '#fef2f2', border: '1px solid #fca5a5',
+            borderRadius: 10, padding: '6px 12px', fontSize: 13, fontWeight: 600, color: '#dc2626', textAlign: 'center', zIndex: 25,
+          }}>{resignedPlayer} has resigned from the game</div>
+        )}
+
         {state.trade && stage === 'main' && !over && (
-          <OfferBanner state={state} playerId={playerId} name={name} actions={actions} />
-        )}
-
-        {me && (
-          <div style={{ display: 'flex', gap: 5, marginBottom: 8 }}>
-            {RESOURCES.map(r => <ResourceCard key={r} resource={r} count={me.resources[r]} testId={`hand-${r}`} dim={me.resources[r] === 0} />)}
+          <div style={{ position: 'absolute', top: 6, left: 10, right: 10, zIndex: 20, maxHeight: '70%', overflowY: 'auto' }}>
+            <OfferBanner state={state} playerId={playerId} name={name} actions={actions} />
           </div>
         )}
 
-        {isMyTurn && stage === 'roll' && (
-          <div style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-            <button data-testid="roll" onClick={actions.ctRoll} style={primary('#b45309')}>🎲 Roll dice</button>
-            {canPlayDev.any && me.devCards.some(c => c.type !== 'victoryPoint' && c.turn !== state.turnNumber) && (
-              <button data-testid="open-dev" onClick={() => setSheet('dev')} style={{ ...secondary(true), flex: '0 0 38%' }}>🃏 Play a card</button>
-            )}
+        {!state.trade && lastLog && (
+          <div data-testid="status" key={state.log.length} className="ct-fade" style={{
+            position: 'absolute', top: 4, left: '50%', transform: 'translateX(-50%)', maxWidth: '92%', pointerEvents: 'none',
+            background: 'rgba(15,35,75,0.62)', color: '#e8f1fb', fontSize: 11.5, fontWeight: 600, borderRadius: 12,
+            padding: '3px 12px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+          }}>{lastLog.message}</div>
+        )}
+
+        {shownDice && (
+          <div data-testid="dice" key={`${state.turnNumber}-${shownDice[0]}-${shownDice[1]}-${state.dice ? 1 : 0}`}
+               className={state.dice ? 'ct-roll' : undefined}
+               style={{ position: 'absolute', right: 10, bottom: 8, display: 'flex', gap: 8, pointerEvents: 'none' }}>
+            <Die value={shownDice[0]} dim={!state.dice} />
+            <Die value={shownDice[1]} dim={!state.dice} />
           </div>
         )}
 
-        {myMain && (
-          <>
-            <div style={{ display: 'flex', gap: 6, marginBottom: 8 }}>
-              {buildBtn('road', '🛣️', 'Road', '🪵🧱')}
-              {buildBtn('settlement', '🏠', 'Settlement', '🪵🧱🐑🌾')}
-              {buildBtn('city', '🏙️', 'City', '🌾🌾🪨🪨🪨')}
-              <button data-testid="open-dev" onClick={() => setSheet('dev')} style={{
-                flex: 1, minWidth: 0, borderRadius: 12, padding: '7px 2px', cursor: 'pointer',
-                border: '2px solid #ddd6fe', background: '#f5f3ff', color: '#5b21b6',
-                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1,
-              }}>
-                <span style={{ fontSize: 19, lineHeight: 1.1 }}>🃏</span>
-                <span style={{ fontSize: 11, fontWeight: 700 }}>Cards ({me.devCards.length})</span>
-                <span style={{ fontSize: 10 }}>🐑🌾🪨</span>
-              </button>
-            </div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <button data-testid="open-trade" onClick={() => setSheet('trade')} style={secondary(true)}>🤝 Trade</button>
-              <button data-testid="end-turn" onClick={() => { setMode(null); actions.ctEnd(); }} style={primary('#1d4ed8')}>End turn ▶</button>
-            </div>
-          </>
-        )}
-
-        {!isMyTurn && me && !over && (
-          <div style={{ fontSize: 12, color: '#9ca3af', textAlign: 'center' }}>
-            {inSetup ? 'Each player places two settlements and two roads — the second settlement earns its neighbouring resources.'
-              : `First to ${WIN_POINTS} victory points wins.`}
-          </div>
-        )}
-        {isMyTurn && inSetup && (
-          <div style={{ fontSize: 12, color: '#6b7280', textAlign: 'center' }}>
-            Tap a glowing spot on the board.
-          </div>
-        )}
-        {isMyTurn && (stage === 'robber' || stage === 'roadBuilding') && (
-          <div style={{ fontSize: 12, color: '#6b7280', textAlign: 'center' }}>Tap a glowing spot on the board.</div>
-        )}
+        <button onClick={() => setShowLog(true)} style={{ ...topBtn, position: 'absolute', left: 10, bottom: 8, borderRadius: 12 }}
+                title="Game log" aria-label="Game log">📋</button>
       </div>
+
+      {/* ── Action row ── */}
+      <div style={{ height: 72, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 8, padding: '0 10px', flexShrink: 0 }}>
+        <ActionButton testId="open-trade" icon="🤝" label="TRADE" enabled={myMain} onClick={() => setSheet('trade')} />
+        <ActionButton testId="open-dev" icon="🃏" label="CARDS" enabled={!!me && !over} onClick={() => setSheet('dev')} />
+        <ActionButton testId={primary.testId} icon={primary.icon} label={primary.label} enabled={primary.enabled}
+                      hot={primary.hot} onClick={primary.on} />
+      </div>
+
+      {/* ── Hand ── */}
+      <div data-testid="hand" style={{
+        height: 96, background: '#1b3f78', borderTop: '2px solid #14305c', flexShrink: 0, display: 'flex', alignItems: 'center',
+        gap: 8, padding: '0 14px', paddingBottom: 'env(safe-area-inset-bottom)', overflowX: 'auto', overflowY: 'hidden',
+      }}>
+        {me && RESOURCES.filter(r => me.resources[r] > 0).map(r => (
+          <HandCard key={r} testId={`hand-${r}`} bg={RESOURCE_COLOR[r]} icon={RESOURCE_ICON[r]} count={me.resources[r]} />
+        ))}
+        {me && myDev.length > 0 && <span style={{ width: 6, flexShrink: 0 }} />}
+        {myDev.map(([type, n]) => (
+          <HandCard key={type} testId={`devcard-${type}`} bg="#7c3aed" icon={DEV_ICON[type]} count={n}
+                    label={DEV_NAMES[type]?.split(' ')[0]} onClick={() => setSheet('dev')} />
+        ))}
+      </div>
+
+      {/* ── Build menu (floats over the board) ── */}
+      {showBuild && (
+        <>
+          <div onClick={() => setShowBuild(false)} style={{ position: 'absolute', inset: 0, zIndex: 28 }} />
+          <div className="ct-fade" style={{
+            position: 'absolute', top: 52, right: 10, width: 230, zIndex: 29, borderRadius: 12, overflow: 'hidden',
+            background: '#16305f', boxShadow: '0 6px 18px rgba(0,0,0,0.4)',
+          }}>
+            {buildRow('road', '🛣️', 'Road', '🪵🧱')}
+            {buildRow('settlement', '🏠', 'Settlement', '🪵🧱🐑🌾')}
+            {buildRow('city', '🏙️', 'City', '🌾🌾🪨🪨🪨')}
+            {!myMain && <div style={{ color: '#9db8d9', fontSize: 11.5, padding: '8px 12px' }}>You can build on your turn, after rolling.</div>}
+          </div>
+        </>
+      )}
 
       {/* ── Sheets ── */}
       {pendingDiscard !== undefined && (
@@ -725,7 +829,7 @@ export default function CatanBoard({ gameState, playerId, playerNames, actions, 
       {sheet === 'trade' && myMain && (
         <TradeSheet state={state} me={me} ratios={ratios} actions={actions} onClose={() => setSheet(null)} />
       )}
-      {sheet === 'dev' && me && isMyTurn && (stage === 'roll' || stage === 'main') && (
+      {sheet === 'dev' && me && !over && (
         <DevSheet
           state={state} me={me} canPlay={canPlayDev}
           onBuy={actions.ctBuyDev}
@@ -733,6 +837,7 @@ export default function CatanBoard({ gameState, playerId, playerNames, actions, 
           onClose={() => setSheet(null)}
         />
       )}
+      {sheet === 'info' && <InfoSheet onClose={() => setSheet(null)} />}
 
       {showLog && <GameLog entries={state.log ?? []} onClose={() => setShowLog(false)} />}
       {showSettings && (
