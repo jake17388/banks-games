@@ -39,8 +39,9 @@ function Settlement({ x, y, color, city }) {
     ? 'M-0.34,0.2 L-0.34,-0.08 L-0.12,-0.08 L-0.12,-0.3 L0.06,-0.42 L0.2,-0.3 L0.2,-0.04 L0.34,-0.04 L0.34,0.2 Z'
     : 'M-0.22,0.2 L-0.22,-0.04 L0,-0.28 L0.22,-0.04 L0.22,0.2 Z';
   return (
-    <path d={d} transform={`translate(${x} ${y})`} fill={c.fill} stroke={c.dark}
-          strokeWidth="0.07" strokeLinejoin="round" style={{ pointerEvents: 'none' }} />
+    <g transform={`translate(${x} ${y})`} style={{ pointerEvents: 'none' }}>
+      <path d={d} fill={c.fill} stroke={c.dark} strokeWidth="0.07" strokeLinejoin="round" className="ct-pop" />
+    </g>
   );
 }
 
@@ -49,7 +50,7 @@ function Road({ edge, color }) {
   const b = TOPOLOGY.vertices[edge.b];
   const c = PLAYER_COLORS[color];
   return (
-    <g style={{ pointerEvents: 'none' }}>
+    <g style={{ pointerEvents: 'none' }} className="ct-fade">
       <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={c.dark} strokeWidth="0.3" strokeLinecap="round" />
       <line x1={a.x} y1={a.y} x2={b.x} y2={b.y} stroke={c.fill} strokeWidth="0.18" strokeLinecap="round" />
     </g>
@@ -79,14 +80,6 @@ export default function BoardSvg({ state, targets, onVertex, onEdge, onHex }) {
       style={{ width: '100%', height: '100%', display: 'block' }}
       data-testid="catan-board"
     >
-      <defs>
-        <radialGradient id="sea" cx="50%" cy="50%" r="70%">
-          <stop offset="0%" stopColor="#2d86bd" />
-          <stop offset="100%" stopColor="#1b5f8f" />
-        </radialGradient>
-      </defs>
-      <rect x="-5.45" y="-4.85" width="10.9" height="9.7" fill="url(#sea)" />
-
       {/* Harbours */}
       {PORT_SLOTS.map((slot, i) => {
         const type = ports[i];

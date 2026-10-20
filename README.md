@@ -229,13 +229,19 @@ on the board to place.
 1. **Roll the dice.** Every settlement next to a tile showing that number pays one
    card of its resource, and every city pays two. (You may play a Knight before
    rolling.)
-2. **Build and trade** in any order — the buttons under your hand show the costs:
+2. **Build and trade** in any order. The screen is laid out like Colonist and never
+   changes size: your hand sits along the bottom, **Trade**, **Cards** and the big
+   **Roll / End turn** button (an hourglass while someone else plays) sit above it,
+   and the **🏠 build menu** at the top right lists the costs:
    - **Road** — lumber + brick. Roads grow from your own roads and buildings, and
      can't pass through a spot an opponent has built on.
    - **Settlement** — lumber + brick + wool + grain. It needs to connect to your road
      and sit at least two roads from any other settlement or city. Worth 1 point.
    - **City** — 2 grain + 3 ore, upgrading one of your settlements. Worth 2 points.
    - **Development card** — wool + grain + ore (tap **Cards**).
+
+   Buttons grey out when you can't use them instead of disappearing, and the **i**
+   button shows the building costs any time.
 3. **End turn.**
 
 **Rolling a 7.** Nobody collects. Anyone holding more than 7 cards discards half
